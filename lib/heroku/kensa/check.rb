@@ -2,6 +2,7 @@ require 'mechanize'
 require 'socket'
 require 'timeout'
 require 'uri'
+require 'term/ansicolor'
 
 module Heroku
   module Kensa
@@ -60,8 +61,9 @@ module Heroku
         if data['api'][env].is_a? Hash
           base = data['api'][env]['base_url']
           uri = URI.parse(base)
-          base.sub!(uri.query, '') if uri.query
-          base.sub(uri.path, '')
+          uri.query = nil
+          uri.path = ''
+          uri.to_s
         else
           data['api'][env].chomp("/")
         end
@@ -129,9 +131,6 @@ module Heroku
           check "contains config_vars array" do
             data["api"]["config_vars"].is_a?(Array)
           end
-          check "containst at least one config var" do
-            !data["api"]["config_vars"].empty?
-          end
           check "all config vars are uppercase strings" do
             data["api"]["config_vars"].each do |k, v|
               if k =~ /^[A-Z][0-9A-Z_]+$/
@@ -164,6 +163,7 @@ module Heroku
 
 
     class ProvisionResponseCheck < Check
+      include Term::ANSIColor
 
       def call!
         response = data[:provision_response]
@@ -192,7 +192,7 @@ module Heroku
             difference = data['api']['config_vars'] - response['config'].keys 
             unless difference.empty?
               verb = (difference.size == 1) ? "is" : "are"
-              error "#{difference.join(', ')} #{verb} missing from the manifest"
+              print "\n\t", yellow( "#{difference.join(', ')} #{verb} missing from the manifest")
             end
             true
           end
@@ -289,7 +289,7 @@ module Heroku
           reader, writer = IO.pipe
         end
 
-        test "POST /heroku/resources"
+        test "POST #{base_path}"
         check "response" do
           if data[:async]
             child = fork do
